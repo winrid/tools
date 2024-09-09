@@ -95,13 +95,17 @@ public class FileOrganizer {
                     final String namespace = FileNameSpace.determine(file.getName());
                     final String targetDir = String.format("%s%s%s", formattedCreationDate, File.separator, namespace);
                     final Path targetFilePath = Path.of(targetPath.toAbsolutePath().toString(), targetDir, file.getName());
-                    if (targetDirs.add(targetDir)) {
-                        System.out.println("Will create: " + targetDir);
-                        final List<TargetPath> dirPaths = new ArrayList<>(10);
-                        dirPaths.add(new TargetPath(deDupedFileSourcePath, targetFilePath));
-                        resultingStructure.put(targetDir, dirPaths);
+                    if (!targetFilePath.toFile().exists()) {
+                        if (targetDirs.add(targetDir)) {
+                            System.out.println("Will create: " + targetDir);
+                            final List<TargetPath> dirPaths = new ArrayList<>(10);
+                            dirPaths.add(new TargetPath(deDupedFileSourcePath, targetFilePath));
+                            resultingStructure.put(targetDir, dirPaths);
+                        } else {
+                            resultingStructure.get(targetDir).add(new TargetPath(deDupedFileSourcePath, targetFilePath));
+                        }
                     } else {
-                        resultingStructure.get(targetDir).add(new TargetPath(deDupedFileSourcePath, targetFilePath));
+                        System.out.println("Already exists, ignoring: " + targetFilePath);
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);

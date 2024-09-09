@@ -57,6 +57,8 @@ public class FileOrganizer {
         final Map<String, Path> hashedPathMap = new HashMap<>(rawSourcePaths.size());
         final List<Path> deDupedSourcePaths = new ArrayList<>(rawSourcePaths.size());
         Timer.timed("De-dup files", () -> {
+            // just doing this sequentially on one thread is probably optimal, especially at least right now this is done
+            // on big spinny bois
             for (Path path : rawSourcePaths) {
                 try {
                     System.out.printf("Hashing %s...%n", path);

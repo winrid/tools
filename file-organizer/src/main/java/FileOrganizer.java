@@ -2,16 +2,12 @@ import org.apache.commons.cli.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalField;
 import java.util.*;
 
 public class FileOrganizer {
@@ -32,19 +28,27 @@ public class FileOrganizer {
         final Path sourcePath = Path.of(source);
         final Path targetPath = Path.of(target);
         final List<Path> rawSourcePaths = new ArrayList<>(10_000);
+        final long start = System.currentTimeMillis();
         Timer.timed("Walk Source Dir", () -> {
             try {
                 Files.walkFileTree(sourcePath, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        System.out.println("Found File: " + file.toString());
-                        rawSourcePaths.add(file);
+                        final String filePath = file.toString();
+                        System.out.println("Found File: " + filePath);
+                        if (!filePath.endsWith("DS_Store") && !filePath.endsWith("__MACOSX")) {
+                            rawSourcePaths.add(file);
+                        }
                         return FileVisitResult.CONTINUE;
                     }
 
                     @Override
                     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                        System.out.println("Found Directory: " + dir.toString());
+                        final String dirPath = dir.toString();
+                        System.out.println("Found Directory: " + dirPath);
+                        if (dirPath.endsWith("/__MACOSX")) {
+                            return FileVisitResult.SKIP_SUBTREE;
+                        }
                         return FileVisitResult.CONTINUE;
                     }
                 });
@@ -77,20 +81,27 @@ public class FileOrganizer {
         });
         System.out.printf("Got %s files after dedupe, from %s.%n", deDupedSourcePaths.size(), rawSourcePaths.size());
         final Set<String> targetDirs = new HashSet<>(1_000);
-        Timer.timed("Create target directory structure...", () -> {
+        final Map<String, List<TargetPath>> resultingStructure = new HashMap<>(1_000);
+        Timer.timed("Determine target directory structure...", () -> {
             final var formatter = DateTimeFormatter.ofPattern("yyyy")
                     .withZone(ZoneId.systemDefault());
-            for (Path path : deDupedSourcePaths) {
-                final File file = path.toFile();
+            for (Path deDupedFileSourcePath : deDupedSourcePaths) {
+                final File file = deDupedFileSourcePath.toFile();
                 try {
-                    final BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+                    final BasicFileAttributes attr = Files.readAttributes(deDupedFileSourcePath, BasicFileAttributes.class);
                     final Instant creationTime = attr.creationTime().toInstant();
                     final String formattedCreationDate = formatter.format(creationTime);
 //                    System.out.println("Creation Date: " + formattedCreationDate);
                     final String namespace = FileNameSpace.determine(file.getName());
                     final String targetDir = String.format("%s%s%s", formattedCreationDate, File.separator, namespace);
+                    final Path targetFilePath = Path.of(targetPath.toAbsolutePath().toString(), targetDir, file.getName());
                     if (targetDirs.add(targetDir)) {
                         System.out.println("Will create: " + targetDir);
+                        final List<TargetPath> dirPaths = new ArrayList<>(10);
+                        dirPaths.add(new TargetPath(deDupedFileSourcePath, targetFilePath));
+                        resultingStructure.put(targetDir, dirPaths);
+                    } else {
+                        resultingStructure.get(targetDir).add(new TargetPath(deDupedFileSourcePath, targetFilePath));
                     }
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -108,5 +119,25 @@ public class FileOrganizer {
                 }
             }
         });
+        Timer.timed("Copy files...", () -> {
+            int counter = 0;
+            for (String key : resultingStructure.keySet()) {
+                final List<TargetPath> targetPaths = resultingStructure.get(key);
+                for (TargetPath targetFileNode : targetPaths) {
+                    System.out.printf("BEGIN: %s -> %s...%n", targetFileNode.sourcePath, targetFileNode.targetPath);
+                    final File sourceFile = targetFileNode.sourcePath.toFile();
+                    final File targetFile = targetFileNode.targetPath.toFile();
+                    try {
+                        Files.copy(sourceFile.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                        System.out.printf("END: %s -> %s...%n", targetFileNode.sourcePath, targetFileNode.targetPath);
+                        System.out.printf("Progress: %.2f%%...%n", (counter / (double) deDupedSourcePaths.size()) * 100);
+                        counter++;
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        });
+        System.out.printf("Done in %sms.%n", System.currentTimeMillis() - start);
     }
 }

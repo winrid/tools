@@ -1,5 +1,6 @@
 import org.apache.commons.cli.*;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -7,6 +8,10 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalField;
 import java.util.*;
 
 public class FileOrganizer {
@@ -69,5 +74,37 @@ public class FileOrganizer {
             }
         });
         System.out.printf("Got %s files after dedupe, from %s.%n", deDupedSourcePaths.size(), rawSourcePaths.size());
+        final Set<String> targetDirs = new HashSet<>(1_000);
+        Timer.timed("Create target directory structure...", () -> {
+            final var formatter = DateTimeFormatter.ofPattern("yyyy")
+                    .withZone(ZoneId.systemDefault());
+            for (Path path : deDupedSourcePaths) {
+                final File file = path.toFile();
+                try {
+                    final BasicFileAttributes attr = Files.readAttributes(path, BasicFileAttributes.class);
+                    final Instant creationTime = attr.creationTime().toInstant();
+                    final String formattedCreationDate = formatter.format(creationTime);
+//                    System.out.println("Creation Date: " + formattedCreationDate);
+                    final String namespace = FileNameSpace.determine(file.getName());
+                    final String targetDir = String.format("%s%s%s", formattedCreationDate, File.separator, namespace);
+                    if (targetDirs.add(targetDir)) {
+                        System.out.println("Will create: " + targetDir);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+        System.out.printf("Will create %s dirs...%n", targetDirs.size());
+        Timer.timed("Create target dirs...", () -> {
+            final String targetDir = targetPath.toString();
+            for (String subTargetDir : targetDirs) {
+                try {
+                    Files.createDirectories(Path.of(targetDir, subTargetDir));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 }

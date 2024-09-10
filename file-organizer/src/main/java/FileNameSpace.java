@@ -12,6 +12,7 @@ public class FileNameSpace {
             fileCategories.put("docx", "text");
             fileCategories.put("pdf", "text");
             fileCategories.put("md", "text");
+            fileCategories.put("rtf", "text");
 
             // Images
             fileCategories.put("jpg", "images");
@@ -24,12 +25,14 @@ public class FileNameSpace {
             fileCategories.put("xd", "images");
             fileCategories.put("ai", "images");
             fileCategories.put("eps", "images");
+            fileCategories.put("webp", "images");
 
             // Videos
             fileCategories.put("mp4", "videos");
             fileCategories.put("avi", "videos");
             fileCategories.put("mov", "videos");
             fileCategories.put("mkv", "videos");
+            fileCategories.put("webm", "videos");
 
             // Audio
             fileCategories.put("mp3", "audio");

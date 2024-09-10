@@ -5,3 +5,5 @@ Copies files from one place to another, organizing by file type, year, and perfo
 Handles large sets of files, optimizes creating the target directories to minimize file IO.
 
 Complete file list must be able to be stored in memory.
+
+It has some optimizations for being ran multiple times as some of my drives/adapters like to have IO issues or have drivers that cause the system to lockup... 

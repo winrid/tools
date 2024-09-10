@@ -137,7 +137,7 @@ public class FileOrganizer {
                         System.out.printf("Progress: %.2f%%...%n", (counter / (double) deDupedSourcePaths.size()) * 100);
                         counter++;
                     } catch (IOException e) {
-                        throw new RuntimeException(e);
+                        e.printStackTrace();
                     }
                 }
             }

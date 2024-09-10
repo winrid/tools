@@ -40,6 +40,8 @@ public class CachedTargetStructure implements Serializable {
                 } catch (IOException | ClassNotFoundException e) {
                     throw new RuntimeException("Failed to load from disk", e);
                 }
+            } else {
+                System.out.println("No cached target structure on disk, creating...");
             }
 
             CachedTargetStructure cachedTargetStructure = new CachedTargetStructure();
@@ -55,7 +57,7 @@ public class CachedTargetStructure implements Serializable {
     static String md5Hash(List<Path> rawSourcePaths) throws NoSuchAlgorithmException, IOException {
         final MessageDigest md = MessageDigest.getInstance("MD5");
         for (Path path : rawSourcePaths) {
-            md.update(Files.readAllBytes(path));
+            md.update(path.toString().getBytes());
         }
         byte[] digest = md.digest();
         StringBuilder sb = new StringBuilder();

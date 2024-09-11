@@ -1,6 +1,7 @@
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -75,10 +76,14 @@ public class CachedTargetStructure implements Serializable {
     void saveToDisk(Path cachePath) {
         Timer.timed("CachedTargetStructure.saveToDisk", () -> {
             try {
-                try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(cachePath.toFile()))) {
+                final File targetCachedFile = cachePath.toFile();
+                final File tempFile = File.createTempFile("temp", ".tmp", targetCachedFile.getParentFile());
+                try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(tempFile))) {
                     oos.writeObject(this);
-                    System.out.printf("Structure saved to %s%n", cachePath);
+                    System.out.printf("Structure saved to %s%n", targetCachedFile);
                 }
+                Files.move(tempFile.toPath(), targetCachedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                System.out.printf("%s moved to to %s%n", tempFile, targetCachedFile);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to save to disk", e);
             }

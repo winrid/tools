@@ -58,7 +58,7 @@ public class FileOrganizer {
         });
         System.out.printf("Found %s files %n", rawSourcePaths.size());
         Timer.timed("Sort files", () -> rawSourcePaths.sort(Comparator.comparing(Path::getFileName)));
-        final CachedTargetStructure cachedTargetStructure = CachedTargetStructure.get(targetPath, rawSourcePaths);
+        final CachedTargetStructure cachedTargetStructure = CachedTargetStructure.get(sourcePath, targetPath, rawSourcePaths);
         System.out.printf("Got %s files after dedupe, from %s.%n", cachedTargetStructure.deDupedSourcePaths.size(), rawSourcePaths.size());
         System.out.printf("Will create %s dirs...%n", cachedTargetStructure.targetDirs.size());
         Timer.timed("Create target dirs...", () -> {

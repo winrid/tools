@@ -94,7 +94,7 @@ public class CachedTargetStructure implements Serializable {
         Timer.timed("De-dup files", () -> {
             // just doing this sequentially on one thread is probably optimal, especially at least right now this is done
             // on big spinny bois
-            int i = 0;
+            long lastSaveTime = System.currentTimeMillis();
             for (Path path : rawSourcePaths) {
                 try {
                     final String pathAsString = path.toString();
@@ -108,10 +108,11 @@ public class CachedTargetStructure implements Serializable {
                         } else {
                             System.out.printf("%s de-duped by %s%n", path, conflictingPath);
                         }
-                        if (i % 10 == 0) {
+                        final long now = System.currentTimeMillis();
+                        if (now - lastSaveTime > 120_000) {
                             saveToDisk(cachePath);
+                            lastSaveTime = now;
                         }
-                        i++;
                     } else {
                         System.out.printf("Already checked for duplicates %s...%n", path);
                     }

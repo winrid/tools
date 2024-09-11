@@ -15,8 +15,8 @@ public class CachedTargetStructure implements Serializable {
     final Map<String, String> hashedPathMap = new HashMap<>();
     final List<String> deDupedSourcePaths = new ArrayList<>();
     final Set<String> checkedPaths = new HashSet<>();
-    final Set<String> targetDirs = new HashSet<>();
-    final Map<String, List<TargetPath>> resultingStructure = new HashMap<>();
+    transient Set<String> targetDirs;
+    transient Map<String, List<TargetPath>> resultingStructure;
     final static String CACHED_EXT = ".file-organizer-data";
     boolean isDone = false;
 
@@ -39,9 +39,10 @@ public class CachedTargetStructure implements Serializable {
                 try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(cachePath.toFile()))) {
                     final CachedTargetStructure cached = (CachedTargetStructure) ois.readObject();
                     if (!cached.isDone) {
-                        cached.determine(cachePath, targetPath, rawSourcePaths);
+                        cached.determine(cachePath, rawSourcePaths);
                         cached.saveToDisk(cachePath);
                     }
+                    cached.determineFinalStructure(targetPath);
                     return cached;
                 } catch (IOException | ClassNotFoundException e) {
                     throw new RuntimeException("Failed to load from disk", e);
@@ -51,7 +52,8 @@ public class CachedTargetStructure implements Serializable {
             }
 
             final CachedTargetStructure newCache = new CachedTargetStructure();
-            newCache.determine(cachePath, targetPath, rawSourcePaths);
+            newCache.determine(cachePath, rawSourcePaths);
+            newCache.determineFinalStructure(targetPath);
             newCache.saveToDisk(cachePath);
             return newCache;
 
@@ -90,7 +92,7 @@ public class CachedTargetStructure implements Serializable {
         });
     }
 
-    void determine(Path cachePath, Path targetPath, List<Path> rawSourcePaths) {
+    void determine(Path cachePath, List<Path> rawSourcePaths) {
         Timer.timed("De-dup files", () -> {
             // just doing this sequentially on one thread is probably optimal, especially at least right now this is done
             // on big spinny bois
@@ -121,8 +123,13 @@ public class CachedTargetStructure implements Serializable {
                 }
             }
         });
+        isDone = true;
+    }
 
+    void determineFinalStructure(Path targetPath) {
         Timer.timed("Determine target directory structure...", () -> {
+            targetDirs = new HashSet<>();
+            resultingStructure = new HashMap<>();
             // this step can ot be resumed but is retryable (is fast)
             final var formatter = DateTimeFormatter.ofPattern("yyyy")
                     .withZone(ZoneId.systemDefault());
@@ -153,7 +160,5 @@ public class CachedTargetStructure implements Serializable {
                 }
             }
         });
-
-        isDone = true;
     }
 }

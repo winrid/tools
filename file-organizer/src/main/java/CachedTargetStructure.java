@@ -17,6 +17,7 @@ public class CachedTargetStructure implements Serializable {
     final Set<String> targetDirs = new HashSet<>();
     final Map<String, List<TargetPath>> resultingStructure = new HashMap<>();
     final static String CACHED_EXT = ".file-organizer-data";
+    boolean isDone = false;
 
     CachedTargetStructure() {
     }
@@ -35,7 +36,12 @@ public class CachedTargetStructure implements Serializable {
             if (Files.exists(cachePath)) {
                 System.out.println("Reading cached target structure from disk...");
                 try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(cachePath.toFile()))) {
-                    return (CachedTargetStructure) ois.readObject();
+                    final CachedTargetStructure cached = (CachedTargetStructure) ois.readObject();
+                    if (!cached.isDone) {
+                        cached.determine(cachePath, targetPath, rawSourcePaths);
+                        cached.saveToDisk(cachePath);
+                    }
+                    return cached;
                 } catch (IOException | ClassNotFoundException e) {
                     throw new RuntimeException("Failed to load from disk", e);
                 }
@@ -43,10 +49,10 @@ public class CachedTargetStructure implements Serializable {
                 System.out.println("No cached target structure on disk, creating...");
             }
 
-            CachedTargetStructure cachedTargetStructure = new CachedTargetStructure();
-            cachedTargetStructure.determine(cachePath, targetPath, rawSourcePaths);
-            cachedTargetStructure.saveToDisk(cachePath);
-            return cachedTargetStructure;
+            final CachedTargetStructure newCache = new CachedTargetStructure();
+            newCache.determine(cachePath, targetPath, rawSourcePaths);
+            newCache.saveToDisk(cachePath);
+            return newCache;
 
         } catch (NoSuchAlgorithmException | IOException e) {
             throw new RuntimeException(e);
@@ -111,6 +117,7 @@ public class CachedTargetStructure implements Serializable {
         });
 
         Timer.timed("Determine target directory structure...", () -> {
+            // this step can ot be resumed but is retryable (is fast)
             final var formatter = DateTimeFormatter.ofPattern("yyyy")
                     .withZone(ZoneId.systemDefault());
             for (String deDupedFileSourcePathString : deDupedSourcePaths) {
@@ -140,5 +147,7 @@ public class CachedTargetStructure implements Serializable {
                 }
             }
         });
+
+        isDone = true;
     }
 }

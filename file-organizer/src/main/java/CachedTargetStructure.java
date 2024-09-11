@@ -13,6 +13,7 @@ public class CachedTargetStructure implements Serializable {
     private static final long serialVersionUID = 1L;
     final Map<String, String> hashedPathMap = new HashMap<>();
     final List<String> deDupedSourcePaths = new ArrayList<>();
+    final Set<String> checkedPaths = new HashSet<>();
     final Set<String> targetDirs = new HashSet<>();
     final Map<String, List<TargetPath>> resultingStructure = new HashMap<>();
     final static String CACHED_EXT = ".file-organizer-data";
@@ -43,7 +44,7 @@ public class CachedTargetStructure implements Serializable {
             }
 
             CachedTargetStructure cachedTargetStructure = new CachedTargetStructure();
-            cachedTargetStructure.determine(targetPath, rawSourcePaths);
+            cachedTargetStructure.determine(cachePath, targetPath, rawSourcePaths);
             cachedTargetStructure.saveToDisk(cachePath);
             return cachedTargetStructure;
 
@@ -78,21 +79,30 @@ public class CachedTargetStructure implements Serializable {
         });
     }
 
-    void determine(Path targetPath, List<Path> rawSourcePaths) {
+    void determine(Path cachePath, Path targetPath, List<Path> rawSourcePaths) {
         Timer.timed("De-dup files", () -> {
             // just doing this sequentially on one thread is probably optimal, especially at least right now this is done
             // on big spinny bois
+            int i = 0;
             for (Path path : rawSourcePaths) {
                 try {
-                    System.out.printf("Hashing %s...%n", path);
-                    final String hash = FileHasher.md5HashFile(path.toFile());
                     final String pathAsString = path.toString();
-                    final String conflictingPath = hashedPathMap.get(hash);
-                    if (conflictingPath == null) {
-                        hashedPathMap.put(hash, pathAsString);
-                        deDupedSourcePaths.add(pathAsString);
+                    if (checkedPaths.add(pathAsString)) {
+                        System.out.printf("Hashing %s...%n", path);
+                        final String hash = FileHasher.md5HashFile(path.toFile());
+                        final String conflictingPath = hashedPathMap.get(hash);
+                        if (conflictingPath == null) {
+                            hashedPathMap.put(hash, pathAsString);
+                            deDupedSourcePaths.add(pathAsString);
+                        } else {
+                            System.out.printf("%s de-duped by %s%n", path, conflictingPath);
+                        }
+                        if (i % 10 == 0) {
+                            saveToDisk(cachePath);
+                        }
+                        i++;
                     } else {
-                        System.out.printf("%s de-duped by %s%n", path, conflictingPath);
+                        System.out.printf("Already checked for duplicates %s...%n", path);
                     }
                 } catch (IOException | NoSuchAlgorithmException e) {
                     throw new RuntimeException(e);

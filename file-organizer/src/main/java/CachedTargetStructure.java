@@ -77,7 +77,7 @@ public class CachedTargetStructure implements Serializable {
         Timer.timed("CachedTargetStructure.saveToDisk", () -> {
             try {
                 final File targetCachedFile = cachePath.toFile();
-                final File tempFile = File.createTempFile("temp", ".tmp", targetCachedFile.getParentFile());
+                final File tempFile = File.createTempFile("temp", ".tmp" + CACHED_EXT, targetCachedFile.getParentFile());
                 try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(tempFile))) {
                     oos.writeObject(this);
                     System.out.printf("Structure saved to %s%n", targetCachedFile);
